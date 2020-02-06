@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 goblin = "0.2"
 unicorn = "0.9.1"
+exitcode = "1.1.2"
