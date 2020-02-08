@@ -4,14 +4,11 @@ on: [push]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
-    # apt -y install curl make python3
-
     steps:
     - uses: actions/checkout@v2
     - name: install libunicorn
+      shell: bash
       run: |
         sudo apt update
         sudo apt -y install curl pkg-config
@@ -23,3 +20,21 @@ jobs:
       with:
         command: build
         args: --release
+    - uses: actions/upload-artifact@v1
+      with:
+        name: binary
+        path: target/release/rustmtest
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    #if: contains(github.ref, "/tag/")
+    steps:
+      - name: Download binary
+        uses: actions/download-artifact@v1
+        with:
+          name: binary
+      - name: look at binary
+        shell: bash
+        run: |
+          ls -lR
