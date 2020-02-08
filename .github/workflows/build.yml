@@ -38,7 +38,7 @@ jobs:
       if: steps.autotag.outputs.tagname != ''
       shell: bash
       run: |
-        zcf rustmtest-${{ steps.autotag.outputs.tagname }}.tar.bz2 -C target/package rustmtest-${{ steps.autotag.outputs.tagname }}
+        tar jcf rustmtest-${{ steps.autotag.outputs.tagname }}.tar.bz2 -C target/package rustmtest-${{ steps.autotag.outputs.tagname }}
     - uses: softprops/action-gh-release@v1
       if: steps.autotag.outputs.tagname != ''
       with:
