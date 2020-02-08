@@ -34,7 +34,6 @@ jobs:
       if: steps.autotag.outputs.tagname != ''
       with:
         command: package
-          - name: Release
     - name: tarball
       if: steps.autotag.outputs.tagname != ''
       shell: bash
