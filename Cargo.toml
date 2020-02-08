@@ -4,11 +4,11 @@ version = "0.1.0"
 description = "Test STM32F4 ELF binaries before flashing them to a device"
 authors = ["Byron Ellacott <code@bje.id.au>"]
 documentation = "README.md"
+readme = "README.md"
 homepage = "https://github.com/codebje/rustmtest/"
 repository = "https://github.com/codebje/rustmtest.git"
 edition = "2018"
 license = "MIT"
-license-file = "LICENSE"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
