@@ -6,5 +6,5 @@ setup:
 call: memaddr
 
 check:
-    r0 = 0b10111001
+    r0 = 0x200000b9
     r1 = 0
