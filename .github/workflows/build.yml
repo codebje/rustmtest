@@ -24,17 +24,28 @@ jobs:
       with:
         name: binary
         path: target/release/rustmtest
+    - uses: jaliborc/action-general-autotag@1.0.0
+      id: autotag
+      with:
+        GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        source_file: "Cargo.toml"
+        extraction_regex: "\\s*version = \"([\\d\\.]+)\""
+    - uses: actions-rs/cargo@v1.0.1
+      if: steps.autotag.outputs.tagname != ''
+      with:
+        command: package
+          - name: Release
+    - name: tarball
+      if: steps.autotag.outputs.tagname != ''
+      shell: bash
+      run: |
+        zcf rustmtest-${{ steps.autotag.outputs.tagname }}.tar.bz2 -C target/package rustmtest-${{ steps.autotag.outputs.tagname }}
+    - uses: softprops/action-gh-release@v1
+      if: steps.autotag.outputs.tagname != ''
+      with:
+        tag_name: ${{ steps.autotag.outputs.tagname }}
+        files: |
+          target/release/rustmtest
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    #if: contains(github.ref, "/tag/")
-    steps:
-      - name: Download binary
-        uses: actions/download-artifact@v1
-        with:
-          name: binary
-      - name: look at binary
-        shell: bash
-        run: |
-          ls -lR
