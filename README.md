@@ -6,6 +6,8 @@ This program is built for assisting the unit testing of STM32F4 assembly project
 
 ## Building
 
+![CI](https://github.com/codebje/rustmtest/workflows/CI/badge.svg)
+
 ```
 cargo build
 ```
