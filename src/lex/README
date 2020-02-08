@@ -1,1 +1,4 @@
-This module is sourced from https://github.com/cloudflare/wirefilter/blob/4ece58ce67c0a76f2b459cac4c12acbcca971e3e/engine/src/lex.rs. It is copyright Cloudflare, under the terms of the LICENSE file in this directory.
+This module is sourced from https://github.com/cloudflare/wirefilter/blob/4ece58ce67c0a76f2b459cac4c12acbcca971e3e/engine/src/lex.rs.
+It is copyright Cloudflare, under the terms of the LICENSE file in this directory.
+
+I have modified it to remove the dependencies on other parts of the wirefilter source tree, and to fold in parts of https://github.com/cloudflare/wirefilter/blob/master/engine/src/rhs_types/int.rs

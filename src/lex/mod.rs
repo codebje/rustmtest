@@ -1,9 +1,3 @@
-use crate::{
-    rhs_types::RegexError,
-    scheme::{UnknownFieldError, UnknownFunctionError},
-    types::{Type, TypeMismatchError},
-};
-use cidr::NetworkParseError;
 use failure::Fail;
 use std::num::ParseIntError;
 
@@ -22,52 +16,8 @@ pub enum LexErrorKind {
         radix: u32,
     },
 
-    #[fail(display = "{}", _0)]
-    ParseNetwork(#[cause] NetworkParseError),
-
-    #[fail(display = "{}", _0)]
-    ParseRegex(#[cause] RegexError),
-
-    #[fail(display = "expected \", xHH or OOO after \\")]
-    InvalidCharacterEscape,
-
-    #[fail(display = "could not find an ending quote")]
-    MissingEndingQuote,
-
-    #[fail(display = "expected {} {}s, but found {}", expected, name, actual)]
-    CountMismatch {
-        name: &'static str,
-        actual: usize,
-        expected: usize,
-    },
-
-    #[fail(display = "{}", _0)]
-    UnknownField(#[cause] UnknownFieldError),
-
-    #[fail(display = "{}", _0)]
-    UnknownFunction(#[cause] UnknownFunctionError),
-
-    #[fail(display = "cannot use this operation type {:?}", lhs_type)]
-    UnsupportedOp { lhs_type: Type },
-
-    #[fail(display = "incompatible range bounds")]
-    IncompatibleRangeBounds,
-
     #[fail(display = "unrecognised input")]
     EOF,
-
-    #[fail(display = "invalid number of arguments")]
-    InvalidArgumentsCount {
-        expected_min: usize,
-        expected_max: usize,
-    },
-
-    #[fail(display = "invalid type of argument #{}: {}", index, mismatch)]
-    InvalidArgumentType {
-        index: usize,
-        #[cause]
-        mismatch: TypeMismatchError,
-    },
 }
 
 pub type LexError<'i> = (LexErrorKind, &'i str);
@@ -108,6 +58,7 @@ pub fn skip_space(input: &str) -> &str {
     input.trim_start_matches(SPACE_CHARS)
 }
 
+/*
 /// This macro generates enum declaration + lexer implementation.
 ///
 /// It works by recursively processing variants one by one, while passing
@@ -183,6 +134,7 @@ macro_rules! lex_enum {
         } $name input {} {} $items);
     };
 }
+*/
 
 pub fn span<'i>(input: &'i str, rest: &'i str) -> &'i str {
     &input[..input.len() - rest.len()]
@@ -209,6 +161,7 @@ pub fn take_while<'i, F: Fn(char) -> bool>(
     }
 }
 
+/*
 pub fn take(input: &str, expected: usize) -> LexResult<'_, &str> {
     let mut chars = input.chars();
     for i in 0..expected {
@@ -226,6 +179,7 @@ pub fn take(input: &str, expected: usize) -> LexResult<'_, &str> {
     let rest = chars.as_str();
     Ok((span(input, rest), rest))
 }
+*/
 
 pub fn complete<T>(res: LexResult<'_, T>) -> Result<T, LexError<'_>> {
     let (res, input) = res?;
@@ -264,4 +218,38 @@ macro_rules! assert_json {
             ::serde_json::json!($json)
         );
     };
+}
+
+fn lex_digits(input: &str) -> LexResult<'_, &str> {
+    // Lex any supported digits (up to radix 16) for better error locations.
+    take_while(input, "digit", |c| c.is_digit(16))
+}
+
+fn parse_number<'i>((input, rest): (&'i str, &'i str), radix: u32) -> LexResult<'_, i32> {
+    match i32::from_str_radix(input, radix) {
+        Ok(res) => Ok((res, rest)),
+        Err(err) => Err((LexErrorKind::ParseInt { err, radix }, input)),
+    }
+}
+
+impl<'i> Lex<'i> for i32 {
+    fn lex(input: &str) -> LexResult<'_, Self> {
+        if let Ok(input) = expect(input, "0x") {
+            parse_number(lex_digits(input)?, 16)
+        } else if let Ok(input) = expect(input, "0b") {
+            parse_number(lex_digits(input)?, 2)
+        } else if input.starts_with('0') {
+            // not using `expect` because we want to include `0` too
+            parse_number(lex_digits(input)?, 8)
+        } else {
+            let without_neg = match expect(input, "-") {
+                Ok(input) => input,
+                Err(_) => input,
+            };
+
+            let (_, rest) = lex_digits(without_neg)?;
+
+            parse_number((span(input, rest), rest), 10)
+        }
+    }
 }
