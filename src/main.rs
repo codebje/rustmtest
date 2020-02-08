@@ -30,6 +30,8 @@ enum Error {
     Unicorn(unicorn::Error),
     IO(io::Error),
     UTF8(std::str::Utf8Error),
+    LexError(lex::LexErrorKind),
+    TestMismatch(RegisterARM, i32, i32),
 }
 
 impl From<goblin::error::Error> for Error {
@@ -56,6 +58,12 @@ impl From<std::str::Utf8Error> for Error {
     }
 }
 
+impl From<(lex::LexErrorKind, &str)> for Error {
+    fn from((err, _str): (lex::LexErrorKind, &str)) -> Error {
+        Error::LexError(err)
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -64,6 +72,10 @@ impl fmt::Display for Error {
             Error::Unicorn(ref err) => write!(fmt, "{}", err),
             Error::IO(ref err) => write!(fmt, "{}", err),
             Error::UTF8(ref err) => write!(fmt, "{}", err),
+            Error::LexError(ref err) => write!(fmt, "{}", err),
+            Error::TestMismatch(reg, got, want) => {
+                write!(fmt, "{:?}=0x{:08x} not 0x{:08x}", reg, got, want)
+            }
         }
     }
 }
@@ -114,6 +126,38 @@ fn lookup_symbol(elf: &Elf, symbol: &str) -> Result<Sym, Error> {
     Err(Error::WrongElf())
 }
 
+fn run_test(test: &TestCase, buffer: &Vec<u8>, elf: &Elf) -> Result<(), Error> {
+    let emu = create_emu(&buffer, &elf)?;
+
+    // Set up registers
+    for (reg, val) in &test.setup {
+        emu.reg_write_i32(reg.reg, *val)?;
+    }
+
+    // Locate elf symbol
+    let sym = lookup_symbol(&elf, &test.target)?;
+
+    // Branch to the subroutine in question:
+    // ldr      r12, [pc, #4]       0xdf 0xf8 0x04 0xc0
+    // blx      r12                 0xe0 0x47
+    // .align   4                   0x00 0x00
+    // .word    sym.st_value        ...
+    let mut call = vec![0xdf, 0xf8, 0x04, 0xc0, 0xe0, 0x47, 0x00, 0x00];
+    call.write_u32::<LittleEndian>(sym.st_value as u32).unwrap();
+    emu.mem_write(HARNESS_BASE, &call)?;
+
+    emu.emu_start(HARNESS_BASE | 1, HARNESS_BASE + 6, 0, 0)?;
+
+    for (reg, val) in &test.check {
+        let rv = emu.reg_read_i32(reg.reg)?;
+        if rv != *val {
+            return Err(Error::TestMismatch(reg.reg, rv, *val));
+        }
+    }
+
+    Ok(())
+}
+
 fn main() -> Result<(), Error> {
     let args: Vec<String> = env::args().collect();
 
@@ -127,38 +171,23 @@ fn main() -> Result<(), Error> {
     let buffer = fs::read(path)?;
     let elf = load_elf(&buffer)?;
 
+    let mut errcount = 0;
     for src in args.iter().skip(2) {
         let path = Path::new(src.as_str());
         let srcbuf = fs::read(path)?;
         let input = std::str::from_utf8(&srcbuf)?;
-        let test = TestCase::parse(&input).unwrap();
-
-        let emu = create_emu(&buffer, &elf)?;
-
-        println!("{}... ", test.name);
-
-        // Set up registers
-        for (reg, val) in test.setup {
-            emu.reg_write_i32(reg.reg, val)?;
+        let test = TestCase::parse(&input)?;
+        match run_test(&test, &buffer, &elf) {
+            Ok(()) => println!("{}... ok", test.name),
+            Err(e) => {
+                println!("{}... fail {}", test.name, e);
+                errcount += 1;
+            }
         }
+    }
 
-        // Locate elf symbol
-        let sym = lookup_symbol(&elf, &test.target)?;
-
-        // Branch to the subroutine in question:
-        // ldr      r12, [pc, #4]       0xdf 0xf8 0x04 0xc0
-        // blx      r12                 0xe0 0x47
-        // .align   4                   0x00 0x00
-        // .word    sym.st_value        ...
-        let mut call = vec![0xdf, 0xf8, 0x04, 0xc0, 0xe0, 0x47, 0x00, 0x00];
-        call.write_u32::<LittleEndian>(sym.st_value as u32).unwrap();
-        emu.mem_write(HARNESS_BASE, &call)?;
-
-        emu.emu_start(HARNESS_BASE | 1, HARNESS_BASE + 6, 0, 0)?;
-
-        for (reg, val) in test.check {
-            assert_eq!(emu.reg_read_i32(reg.reg)?, val);
-        }
+    if errcount > 0 {
+        std::process::exit(errcount);
     }
 
     Ok(())

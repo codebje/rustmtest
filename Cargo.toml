@@ -1,6 +1,6 @@
 [package]
 name = "rustmtest"
-version = "0.1.0"
+version = "0.2.0"
 description = "Test STM32F4 ELF binaries before flashing them to a device"
 authors = ["Byron Ellacott <code@bje.id.au>"]
 readme = "README.md"
