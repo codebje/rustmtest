@@ -7,8 +7,18 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    # apt -y install curl make python3
+
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
+    - name: install libunicorn
+      run: |
+        sudo apt update
+        sudo apt -y install curl pkg-config
+        sudo curl -o /usr/local/lib/libunicorn.so.1 https://bje.id.au/libunicorn.so.1
+        sudo curl -o /usr/local/lib/libunicorn.a https://bje.id.au/libunicorn.a
+        sudo curl -o /usr/lib/pkgconfig/unicorn.pc https://bje.id.au/unicorn.pc
+        sudo ldconfig
     - uses: actions-rs/cargo@v1.0.1
       with:
         command: build
