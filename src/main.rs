@@ -133,26 +133,7 @@ fn main() -> Result<(), Error> {
         let input = std::str::from_utf8(&srcbuf)?;
         let test = TestCase::parse(&input).unwrap();
 
-        let mut emu = create_emu(&buffer, &elf)?;
-
-        emu.add_mem_hook(
-            unicorn::MemHookType::MEM_ALL,
-            0,
-            std::u64::MAX,
-            |_u, t, addr, a, b| {
-                println!("MEMORY {:#?} 0x{:08x} {} {}", t, addr, a, b);
-                true
-            },
-        )?;
-
-        emu.add_code_hook(
-            unicorn::CodeHookType::CODE,
-            0,
-            std::u64::MAX,
-            |_u, addr, size| {
-                println!("CODE 0x{:08x} {}", addr, size);
-            },
-        )?;
+        let emu = create_emu(&buffer, &elf)?;
 
         println!("{}... ", test.name);
 
@@ -163,7 +144,6 @@ fn main() -> Result<(), Error> {
 
         // Locate elf symbol
         let sym = lookup_symbol(&elf, &test.target)?;
-        let end = (sym.st_value + sym.st_size) & !1;
 
         // Branch to the subroutine in question:
         // ldr      r12, [pc, #4]       0xdf 0xf8 0x04 0xc0
